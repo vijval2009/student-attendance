@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Attendance System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 100; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 10% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 500px;
+            border-radius: 0.5rem;
+        }
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close-button:hover,
+        .close-button:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        /* Style for the QR scanner video feed */
+        #qrScannerContainer video {
+            width: 100%;
+            height: auto;
+            border-radius: 0.5rem;
+            border: 1px solid #e2e8f0;
+        }
+        #qrScannerContainer {
+             max-width: 400px;
+             margin: 0 auto;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+<div id="notification" class="hidden"></div>
+
+    <!-- Main Container -->
+    <div id="app" class="container mx-auto p-4">
+
+        <!-- Login and Public Area -->
+        <div id="publicArea">
+            <!-- Login Page -->
+            <div id="loginPage" class="max-w-md mx-auto bg-white p-8 rounded-lg shadow-md mt-10">
+                <h1 class="text-2xl font-bold text-center mb-6">Admin Login</h1>
+                <div class="mb-4">
+                    <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
+                    <input type="text" id="username" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+                <div class="mb-6">
+                    <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                    <input type="password" id="password" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+                <button id="loginBtn" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Login</button>
+                <p id="loginError" class="text-red-500 text-sm mt-4 text-center"></p>
+            </div>
+
+            <!-- Parent Preview Section -->
+            <div id="parentPreviewSection" class="max-w-md mx-auto bg-white p-8 rounded-lg shadow-md mt-8">
+                <h2 class="text-2xl font-bold text-center mb-6">Parent Preview</h2>
+                <div class="mb-4">
+                    <label for="parentClassSelect" class="block text-sm font-medium text-gray-700">Select Class</label>
+                    <select id="parentClassSelect" class="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        <option value="">-- Select Class --</option>
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label for="parentStudentSelect" class="block text-sm font-medium text-gray-700">Select Student</label>
+                    <select id="parentStudentSelect" class="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" disabled>
+                        <option value="">-- Select Student --</option>
+                    </select>
+                </div>
+                <button id="viewMarksBtn" class="w-full bg-teal-600 text-white py-2 px-4 rounded-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500" disabled>View Marks</button>
+                <div id="parentMarksDisplay" class="mt-6"></div>
+            </div>
+        </div>
+
+
+        <!-- Admin Dashboard -->
+        <div id="adminDashboard" class="hidden">
+            <div class="flex justify-between items-center mb-6">
+              <h1 class="text-3xl font-bold">Admin Dashboard</h1>
+                 <div class="space-x-2">
+                    <button onclick="loadData()" class="bg-yellow-500 text-white py-2 px-4 rounded-md hover:bg-yellow-600">Load Data</button>
+                    <button onclick="saveData()" class="bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600">Save Data</button>
+                    <button id="logoutBtnAdmin" class="bg-red-500 text-white py-2 px-4 rounded-md hover:bg-red-600">Logout</button>
+                 </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="mb-4 border-b border-gray-200">
+                <ul class="flex flex-wrap -mb-px text-sm font-medium text-center" id="adminTabs" role="tablist">
+                    <li class="mr-2" role="presentation">
+                        <button class="inline-block p-4 border-b-2 rounded-t-lg" id="students-tab" data-tabs-target="#students" type="button" role="tab" aria-controls="students" aria-selected="false">Students</button>
+                    </li>
+                    <li class="mr-2" role="presentation">
+                        <button class="inline-block p-4 border-b-2 rounded-t-lg hover:text-gray-600 hover:border-gray-300" id="classes-tab" data-tabs-target="#classes" type="button" role="tab" aria-controls="classes" aria-selected="false">Classes</button>
+                    </li>
+                    <li class="mr-2" role="presentation">
+                        <button class="inline-block p-4 border-b-2 rounded-t-lg hover:text-gray-600 hover:border-gray-300" id="qr-scanner-tab" data-tabs-target="#qr-scanner" type="button" role="tab" aria-controls="qr-scanner" aria-selected="false">QR Scanner</button>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Tab Content -->
+            <div id="adminTabContent">
+                <!-- Students Tab -->
+                <div class="hidden p-4 rounded-lg bg-white shadow" id="students" role="tabpanel" aria-labelledby="students-tab">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-semibold">Manage Students</h2>
+                        <button id="addStudentBtn" class="bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600">Add Student</button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full bg-white">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                    <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class</th>
+                                    <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="studentList" class="bg-white divide-y divide-gray-200">
+                                <!-- Student rows will be inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Classes Tab -->
+                <div class="hidden p-4 rounded-lg bg-white shadow" id="classes" role="tabpanel" aria-labelledby="classes-tab">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-semibold">Manage Classes</h2>
+                        <button id="addClassBtn" class="bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600">Add Class</button>
+                    </div>
+                     <div class="overflow-x-auto">
+                        <table class="min-w-full bg-white">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class Name</th>
+                                    <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="classList" class="bg-white divide-y divide-gray-200">
+                                <!-- Class rows will be inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- QR Scanner Tab -->
+                <div class="hidden p-4 rounded-lg bg-white shadow" id="qr-scanner" role="tabpanel" aria-labelledby="qr-scanner-tab">
+                    <h2 class="text-2xl font-semibold text-center mb-4">Scan Student QR Code</h2>
+                    
+                    <!-- Camera Access Prompt -->
+                    <div id="cameraAccessPrompt" class="text-center p-8 border-2 border-dashed rounded-lg">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <h3 class="mt-2 text-sm font-medium text-gray-900">Camera Access Required</h3>
+                        <p class="mt-1 text-sm text-gray-500">Please grant camera access to scan QR codes.</p>
+                        <div class="mt-6">
+                            <button type="button" id="enableCameraBtn" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                Enable Camera
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- QR Scanner View -->
+                    <div id="qrScannerContainer" class="hidden">
+                        <video id="qrVideo" autoplay muted playsinline></video>
+                        <canvas id="qrCanvas" class="hidden"></canvas>
+                        <div id="qrMessage" class="mt-4 text-center font-medium p-3 rounded-md"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Parent View (for logged-in parents - kept for original functionality) -->
+        <div id="parentView" class="hidden">
+             <div class="flex justify-between items-center mb-6">
+                <h1 class="text-3xl font-bold">Parent View</h1>
+                <button id="logoutBtnParent" class="bg-red-500 text-white py-2 px-4 rounded-md hover:bg-red-600">Logout</button>
+            </div>
+            <div id="studentAttendanceInfo" class="p-4 rounded-lg bg-white shadow">
+                <!-- Attendance info will be displayed here -->
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Modals -->
+    <!-- Add/Edit Student Modal -->
+    <div id="studentModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" id="closeStudentModal">&times;</span>
+            <h2 id="studentModalTitle" class="text-xl font-bold mb-4">Add Student</h2>
+            <form id="studentForm">
+                <input type="hidden" id="studentId">
+                <div class="mb-4">
+                    <label for="studentName" class="block text-sm font-medium text-gray-700">Student Name</label>
+                    <input type="text" id="studentName" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                </div>
+                <div class="mb-4">
+                    <label for="studentClass" class="block text-sm font-medium text-gray-700">Class</label>
+                    <select id="studentClass" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                        <!-- Class options will be populated here -->
+                    </select>
+                </div>
+                <div class="flex justify-end">
+                    <button type="button" id="cancelStudent" class="bg-gray-300 text-gray-800 py-2 px-4 rounded-md mr-2">Cancel</button>
+                    <button type="submit" class="bg-indigo-600 text-white py-2 px-4 rounded-md">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add/Edit Class Modal -->
+    <div id="classModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" id="closeClassModal">&times;</span>
+            <h2 id="classModalTitle" class="text-xl font-bold mb-4">Add Class</h2>
+            <form id="classForm">
+                <input type="hidden" id="classId">
+                <div class="mb-4">
+                    <label for="className" class="block text-sm font-medium text-gray-700">Class Name</label>
+                    <input type="text" id="className" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                </div>
+                <div class="flex justify-end">
+                    <button type="button" id="cancelClass" class="bg-gray-300 text-gray-800 py-2 px-4 rounded-md mr-2">Cancel</button>
+                    <button type="submit" class="bg-indigo-600 text-white py-2 px-4 rounded-md">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- View Student Details Modal -->
+    <div id="viewStudentModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" id="closeViewStudentModal">&times;</span>
+            <h2 id="viewStudentName" class="text-2xl font-bold mb-4"></h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <h3 class="text-lg font-semibold mb-2">QR Code</h3>
+                    <canvas id="qrCodeCanvas" class="w-48 h-48 border"></canvas>
+                    <button id="regenerateQrBtn" class="mt-2 bg-blue-500 text-white py-1 px-3 rounded-md text-sm">Regenerate QR</button>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold mb-2">Manual Attendance</h3>
+                     <div class="mb-4">
+                        <label for="manualDate" class="block text-sm font-medium">Date</label>
+                        <input type="date" id="manualDate" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md">
+                        <label for="manualStatus" class="block text-sm font-medium mt-2">Status</label>
+                        <select id="manualStatus" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md">
+                            <option value="present">Present</option>
+                            <option value="absent">Absent</option>
+                        </select>
+                        <button id="addManualAttendanceBtn" class="mt-2 bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600">Add</button>
+                    </div>
+                </div>
+            </div>
+             <div class="mt-6">
+                <h3 class="text-lg font-semibold mb-2">Attendance Graph</h3>
+                <canvas id="attendanceChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Parent Preview Modal (for admin quick view) -->
+    <div id="parentPreviewModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" id="closeParentPreviewModal">&times;</span>
+            <div id="parentPreviewContent">
+                <!-- Parent preview content will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Camera Notification Modal -->
+    <div id="mobileCameraNotification" class="modal">
+        <div class="modal-content">
+             <h2 class="text-xl font-bold mb-4">Camera Access</h2>
+             <p class="mb-4 text-gray-600">This feature requires access to your phone's camera to scan QR codes. Please tap "Proceed" to allow access when prompted by your browser.</p>
+             <div class="flex justify-end">
+                <button type="button" id="cancelCamera" class="bg-gray-300 text-gray-800 py-2 px-4 rounded-md mr-2">Cancel</button>
+                <button type="button" id="proceedCamera" class="bg-indigo-600 text-white py-2 px-4 rounded-md">Proceed</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+
+        // Initial dummy data - this will be overwritten by data loaded from Google Drive
+        let db = {
+            users: [
+                { id: 1, username: 'admin', password: 'password', role: 'admin' },
+                { id: 2, username: 'parent1', password: 'password', role: 'parent', studentId: 101 }
+            ],
+            classes: [
+                { id: 1, name: 'Grade 10 - A' },
+                { id: 2, name: 'Grade 10 - B' }
+            ],
+            students: [
+                { id: 101, name: 'John Doe', classId: 1, qrData: 'student-101' },
+                { id: 102, name: 'Jane Smith', classId: 1, qrData: 'student-102' },
+                { id: 103, name: 'Peter Jones', classId: 2, qrData: 'student-103' }
+            ],
+            attendance: [
+                { studentId: 101, date: '2025-07-10', status: 'present' },
+                { studentId: 101, date: '2025-07-11', status: 'absent' },
+                { studentId: 101, date: '2025-07-12', status: 'present' },
+                { studentId: 102, date: '2025-07-10', status: 'present' },
+                { studentId: 102, date: '2025-07-11', status: 'present' },
+            ]
+        };
+
+        // DOM Elements
+        const publicArea = document.getElementById('publicArea');
+        const loginPage = document.getElementById('loginPage');
+        const adminDashboard = document.getElementById('adminDashboard');
+        const parentView = document.getElementById('parentView');
+        const loginBtn = document.getElementById('loginBtn');
+        const logoutBtnAdmin = document.getElementById('logoutBtnAdmin');
+        const logoutBtnParent = document.getElementById('logoutBtnParent');
+        const loginError = document.getElementById('loginError');
+
+        // Admin Dashboard Elements
+        const adminTabs = document.getElementById('adminTabs');
+        const adminTabContent = document.getElementById('adminTabContent');
+        const studentList = document.getElementById('studentList');
+        const classList = document.getElementById('classList');
+        const addStudentBtn = document.getElementById('addStudentBtn');
+        const addClassBtn = document.getElementById('addClassBtn');
+
+        // Parent Preview Elements
+        const parentClassSelect = document.getElementById('parentClassSelect');
+        const parentStudentSelect = document.getElementById('parentStudentSelect');
+        const viewMarksBtn = document.getElementById('viewMarksBtn');
+        const parentMarksDisplay = document.getElementById('parentMarksDisplay');
+
+        // QR Scanner Elements
+        const qrScannerTab = document.getElementById('qr-scanner-tab');
+        const cameraAccessPrompt = document.getElementById('cameraAccessPrompt');
+        const enableCameraBtn = document.getElementById('enableCameraBtn');
+        const qrScannerContainer = document.getElementById('qrScannerContainer');
+        const qrVideo = document.getElementById('qrVideo');
+        const qrCanvas = document.getElementById('qrCanvas');
+        const qrMessage = document.getElementById('qrMessage');
+        let videoStream = null;
+        let animationFrameId = null;
+
+        // Modals
+        const studentModal = document.getElementById('studentModal');
+        const classModal = document.getElementById('classModal');
+        const viewStudentModal = document.getElementById('viewStudentModal');
+        const parentPreviewModal = document.getElementById('parentPreviewModal');
+        const mobileCameraNotification = document.getElementById('mobileCameraNotification');
+
+        // Modal Controls
+        const closeStudentModal = document.getElementById('closeStudentModal');
+        const closeClassModal = document.getElementById('closeClassModal');
+        const closeViewStudentModal = document.getElementById('closeViewStudentModal');
+        const closeParentPreviewModal = document.getElementById('closeParentPreviewModal');
+        const cancelStudent = document.getElementById('cancelStudent');
+        const cancelClass = document.getElementById('cancelClass');
+        const cancelCamera = document.getElementById('cancelCamera');
+        const proceedCamera = document.getElementById('proceedCamera');
+
+        // Forms
+        const studentForm = document.getElementById('studentForm');
+        const classForm = document.getElementById('classForm');
+
+        let currentUser = null;
+        let attendanceChartInstance = null;
+
+        // --- Utility Functions ---
+        function isMobileDevice() {
+            return /Android|webOS|iPhone|iPad|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        }
+
+        // --- Cookie Functions ---
+        function setCookie(name, value, days) {
+            let expires = "";
+            if (days) {
+                const date = new Date();
+                date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+                expires = "; expires=" + date.toUTCString();
+            }
+            document.cookie = name + "=" + (value || "") + expires + "; path=/";
+        }
+
+        function getCookie(name) {
+            const nameEQ = name + "=";
+            const ca = document.cookie.split(';');
+            for (let i = 0; i < ca.length; i++) {
+                let c = ca[i];
+                while (c.charAt(0) == ' ') c = c.substring(1, c.length);
+                if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
+            }
+            return null;
+        }
+
+        // --- Core Functions ---
+        function showPage(pageId) {
+            publicArea.classList.add('hidden');
+            adminDashboard.classList.add('hidden');
+            parentView.classList.add('hidden');
+
+            if (pageId === 'loginPage') {
+                publicArea.classList.remove('hidden');
+            } else {
+                document.getElementById(pageId).classList.remove('hidden');
+            }
+        }
+
+        function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const user = db.users.find(u => u.username === username && u.password === password);
+
+            if (user) {
+                currentUser = user;
+                if (user.role === 'admin') {
+                    showPage('adminDashboard');
+                    renderAdminDashboard();
+                } else if (user.role === 'parent') {
+                    // Load latest data from Drive when parent logs in
+                    loadData(); 
+                    showPage('parentView');
+                    renderParentView();
+                }
+                loginError.textContent = '';
+            } else {
+                loginError.textContent = 'Invalid username or password.';
+            }
+        }
+
+        function logout() {
+            currentUser = null;
+            stopQrScanner(); // Ensure camera is off on logout
+            setCookie('cameraAccessGranted', '', -1); // Expire the cookie on logout
+            saveData(); // Final save before logout
+            showPage('loginPage');
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+        }
+
+        // --- Admin Dashboard ---
+        function renderAdminDashboard() {
+            switchTab('students-tab');
+            renderStudentList();
+            renderClassList();
+        }
+
+        function switchTab(tabId) {
+            // Stop scanner if switching away from it
+            if (videoStream && tabId !== 'qr-scanner-tab') {
+                stopQrScanner();
+            }
+
+            Array.from(adminTabContent.children).forEach(child => child.classList.add('hidden'));
+            Array.from(adminTabs.getElementsByTagName('button')).forEach(btn => {
+                btn.setAttribute('aria-selected', 'false');
+                btn.classList.remove('border-indigo-500', 'text-indigo-600');
+                btn.classList.add('border-transparent', 'hover:text-gray-600', 'hover:border-gray-300');
+            });
+
+            const targetButton = document.getElementById(tabId);
+            const targetPanelId = targetButton.dataset.tabsTarget;
+            const targetPanel = document.querySelector(targetPanelId);
+
+            targetPanel.classList.remove('hidden');
+            targetButton.setAttribute('aria-selected', 'true');
+            targetButton.classList.add('border-indigo-500', 'text-indigo-600');
+            targetButton.classList.remove('border-transparent', 'hover:text-gray-600', 'hover:border-gray-300');
+
+            // Handle QR Scanner tab activation
+            if (tabId === 'qr-scanner-tab') {
+                if (getCookie('cameraAccessGranted') === 'true') {
+                    startQrScanner();
+                } else if (isMobileDevice()) {
+                    mobileCameraNotification.style.display = 'block';
+                }
+            }
+        }
+
+        // --- QR Code Scanner ---
+        async function startQrScanner() {
+            // Hide any prompts, show scanner view
+            mobileCameraNotification.style.display = 'none';
+            cameraAccessPrompt.classList.add('hidden');
+            qrScannerContainer.classList.remove('hidden');
+            
+            try {
+                const constraints = { 
+                    video: { 
+                        facingMode: { ideal: 'environment' },
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    },
+                    audio: false
+                };
+                videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+                setCookie('cameraAccessGranted', 'true', 30); // Remember permission
+                qrVideo.srcObject = videoStream;
+                qrVideo.setAttribute("playsinline", true);
+                await qrVideo.play(); // Wait for video to start playing
+
+                // Fallback check after 3 seconds if video hasn't started
+                setTimeout(() => {
+                    if (!qrVideo.videoWidth) {
+                        qrMessage.textContent = "Camera failed to start. Please check browser permissions or try a different browser.";
+                        qrMessage.className = 'mt-4 text-center font-medium p-3 rounded-md bg-red-100 text-red-800';
+                    }
+                }, 3000);
+
+                qrMessage.textContent = 'Point camera at a QR code.';
+                qrMessage.className = 'mt-4 text-center font-medium p-3 rounded-md bg-blue-100 text-blue-800';
+                animationFrameId = requestAnimationFrame(tick);
+            } catch (err) {
+                console.error("Error accessing camera: ", err);
+                setCookie('cameraAccessGranted', 'false', 30); // Remember denial
+                qrScannerContainer.classList.add('hidden');
+                cameraAccessPrompt.classList.remove('hidden');
+                const promptMessage = cameraAccessPrompt.querySelector('p');
+                promptMessage.innerHTML = `
+                    <span class="font-semibold text-red-600">Camera access denied.</span><br>
+                    Please enable it in your phone browser settings.<br><br>
+                    <span class="text-sm text-gray-600">
+                        📱 On Android Chrome: Tap the 🔒 icon → Permissions → Allow Camera
+                    </span>
+                `;
+                promptMessage.classList.add('text-red-600');
+                enableCameraBtn.textContent = 'Try Again';
+            }
+        }
+
+        function stopQrScanner() {
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                videoStream = null;
+            }
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            
+            // Reset the UI to the initial prompt state
+            qrScannerContainer.classList.add('hidden');
+            if (getCookie('cameraAccessGranted') !== 'true') {
+                cameraAccessPrompt.classList.remove('hidden');
+            }
+            
+            // Reset prompt text
+            const promptMessage = cameraAccessPrompt.querySelector('p');
+            promptMessage.textContent = 'Please grant camera access to scan QR codes.';
+            promptMessage.classList.remove('text-red-600');
+            enableCameraBtn.textContent = 'Enable Camera';
+        }
+
+        function tick() {
+            if (qrVideo.readyState === qrVideo.HAVE_ENOUGH_DATA) {
+                const canvas = qrCanvas;
+                const ctx = canvas.getContext("2d");
+                canvas.height = qrVideo.videoHeight;
+                canvas.width = qrVideo.videoWidth;
+                ctx.drawImage(qrVideo, 0, 0, canvas.width, canvas.height);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: "dontInvert",
+                });
+
+                if (code) {
+                    handleQrCode(code.data);
+                    return; // Stop after finding a code
+                }
+            }
+            animationFrameId = requestAnimationFrame(tick);
+        }
+
+        function handleQrCode(qrData) {
+            const student = db.students.find(s => s.qrData === qrData);
+            if (student) {
+                const today = new Date().toISOString().slice(0, 10);
+                const existingRecord = db.attendance.find(a => a.studentId === student.id && a.date === today);
+
+                if (existingRecord) {
+                    qrMessage.textContent = `${student.name} already marked ${existingRecord.status} today.`;
+                    qrMessage.className = 'mt-4 text-center font-medium p-3 rounded-md bg-yellow-100 text-yellow-800';
+                } else {
+                    db.attendance.push({ studentId: student.id, date: today, status: 'present' });
+                    saveData(); // Save attendance to Drive
+                    qrMessage.textContent = `Success! Marked ${student.name} as present.`;
+                    qrMessage.className = 'mt-4 text-center font-medium p-3 rounded-md bg-green-100 text-green-800';
+                }
+            } else {
+                qrMessage.textContent = 'Unknown QR Code. Please use a valid student QR code.';
+                qrMessage.className = 'mt-4 text-center font-medium p-3 rounded-md bg-red-100 text-red-800';
+            }
+
+            // Resume scanning after a short delay
+            setTimeout(() => {
+                if (videoStream) {
+                    animationFrameId = requestAnimationFrame(tick);
+                }
+            }, 3000);
+        }
+
+        // Student Management
+        function renderStudentList() {
+            studentList.innerHTML = '';
+            db.students.forEach(student => {
+                const studentClass = db.classes.find(c => c.id === student.classId);
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="py-4 px-6 text-sm font-medium text-gray-900 whitespace-nowrap">${student.name}</td>
+                    <td class="py-4 px-6 text-sm text-gray-500 whitespace-nowrap">${studentClass ? studentClass.name : 'N/A'}</td>
+                    <td class="py-4 px-6 text-sm font-medium text-left whitespace-nowrap">
+                        <button class="text-indigo-600 hover:text-indigo-900 mr-4" onclick="viewStudent(${student.id})">View Details</button>
+                        <button class="text-blue-600 hover:text-blue-900 mr-4" onclick="editStudent(${student.id})">Edit</button>
+                        <button class="text-green-600 hover:text-green-900 mr-4" onclick="openParentPreview(${student.id})">Parent Preview</button>
+                        <button class="text-red-600 hover:text-red-900" onclick="deleteStudent(${student.id})">Delete</button>
+                    </td>
+                `;
+                studentList.appendChild(row);
+            });
+        }
+
+        function openStudentModal(studentId = null) {
+            studentForm.reset();
+            document.getElementById('studentId').value = '';
+            const modalTitle = document.getElementById('studentModalTitle');
+            const classSelect = document.getElementById('studentClass');
+            
+            classSelect.innerHTML = '<option value="">Select a class</option>';
+            db.classes.forEach(c => {
+                const option = document.createElement('option');
+                option.value = c.id;
+                option.textContent = c.name;
+                classSelect.appendChild(option);
+            });
+
+            if (studentId) {
+                const student = db.students.find(s => s.id === studentId);
+                modalTitle.textContent = 'Edit Student';
+                document.getElementById('studentId').value = student.id;
+                document.getElementById('studentName').value = student.name;
+                document.getElementById('studentClass').value = student.classId;
+            } else {
+                modalTitle.textContent = 'Add Student';
+            }
+            studentModal.style.display = 'block';
+        }
+
+        function saveStudent(e) {
+            e.preventDefault();
+            const id = document.getElementById('studentId').value;
+            const name = document.getElementById('studentName').value;
+            const classId = parseInt(document.getElementById('studentClass').value);
+
+            if (id) {
+                const student = db.students.find(s => s.id === parseInt(id));
+                student.name = name;
+                student.classId = classId;
+            } else {
+                const newId = db.students.length > 0 ? Math.max(...db.students.map(s => s.id)) + 1 : 101;
+                db.students.push({ id: newId, name, classId, qrData: `student-${newId}` });
+            }
+            renderStudentList();
+            saveData(); // Save changes
+            studentModal.style.display = 'none'; // Close modal after saving
+        }
+
+        function editStudent(studentId) {
+            openStudentModal(studentId);
+        }
+
+        function deleteStudent(studentId) {
+            // Replaced alert with showNotification for better UX
+            if (confirm('Are you sure you want to delete this student?')) {
+                db.students = db.students.filter(s => s.id !== studentId);
+                db.attendance = db.attendance.filter(a => a.studentId !== studentId);
+                renderStudentList();
+                saveData(); // Save changes
+                showNotification('Student deleted successfully!');
+            }
+        }
+
+        function viewStudent(studentId) {
+            const student = db.students.find(s => s.id === studentId);
+            document.getElementById('viewStudentName').textContent = student.name;
+            viewStudentModal.dataset.studentId = studentId;
+            generateQrCode(student.qrData);
+            renderAttendanceChart(studentId);
+            viewStudentModal.style.display = 'block';
+        }
+
+        function generateQrCode(data) {
+            const canvas = document.getElementById('qrCodeCanvas');
+            new QRious({
+                element: canvas,
+                value: data,
+                size: 200,
+            });
+        }
+
+        function regenerateQrCode() {
+            const studentId = parseInt(viewStudentModal.dataset.studentId);
+            const student = db.students.find(s => s.id === studentId);
+            if (student) {
+                student.qrData = `student-${student.id}-${new Date().getTime()}`;
+                generateQrCode(student.qrData);
+                showNotification('New QR Code generated!'); // Replaced alert
+                saveData(); // Save updated QR
+            }
+        }
+
+        function addManualAttendance() {
+            const studentId = parseInt(viewStudentModal.dataset.studentId);
+            const date = document.getElementById('manualDate').value;
+            const status = document.getElementById('manualStatus').value;
+
+            if (!date) {
+                showNotification('Please select a date.', 3000, 'bg-red-600'); // Replaced alert
+                return;
+            }
+
+            const existingRecord = db.attendance.find(a => a.studentId === studentId && a.date === date);
+            if (existingRecord) {
+                existingRecord.status = status;
+            } else {
+                db.attendance.push({ studentId, date, status });
+            }
+
+            showNotification(`Attendance for ${date} marked as ${status}.`); // Replaced alert
+            renderAttendanceChart(studentId);
+            saveData(); 
+        }
+
+        function renderAttendanceChart(studentId) {
+            const attendanceData = db.attendance.filter(a => a.studentId === studentId);
+            const labels = [...new Set(attendanceData.map(a => a.date))].sort();
+            
+            const data = {
+                labels: labels,
+                datasets: [{
+                    label: 'Present Days',
+                    data: labels.map(date => attendanceData.find(a => a.date === date && a.status === 'present') ? 1 : 0),
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1,
+                    stepped: true,
+                }, {
+                    label: 'Absent Days',
+                    data: labels.map(date => attendanceData.find(a => a.date === date && a.status === 'absent') ? 1 : 0),
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 1,
+                    stepped: true,
+                }]
+            };
+
+            const ctx = document.getElementById('attendanceChart').getContext('2d');
+            if (attendanceChartInstance) {
+                attendanceChartInstance.destroy();
+            }
+            attendanceChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: data,
+                options: {
+                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+                }
+            });
+        }
+
+        // Class Management
+        function renderClassList() {
+            classList.innerHTML = '';
+            db.classes.forEach(c => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="py-4 px-6 text-sm font-medium text-gray-900 whitespace-nowrap">${c.name}</td>
+                    <td class="py-4 px-6 text-sm font-medium text-right whitespace-nowrap">
+                        <button class="text-red-600 hover:text-red-900" onclick="deleteClass(${c.id})">Delete</button>
+                    </td>
+                `;
+                classList.appendChild(row);
+            });
+        }
+
+        function openClassModal() {
+            classForm.reset();
+            document.getElementById('classModalTitle').textContent = 'Add Class';
+            classModal.style.display = 'block';
+        }
+
+        function saveClass(e) {
+            e.preventDefault();
+            const name = document.getElementById('className').value;
+            const newId = db.classes.length > 0 ? Math.max(...db.classes.map(c => c.id)) + 1 : 1;
+            db.classes.push({ id: newId, name });
+            renderClassList();
+            saveData(); // Save changes
+            classModal.style.display = 'none'; // Close modal after saving
+        }
+
+        function deleteClass(classId) {
+            // Replaced alert with showNotification for better UX
+            if (confirm('Are you sure you want to delete this class? This will also delete students and attendance records associated with it.')) {
+                db.classes = db.classes.filter(c => c.id !== classId);
+                // Also delete students and their attendance from this class
+                db.students = db.students.filter(s => {
+                    if (s.classId === classId) {
+                        db.attendance = db.attendance.filter(a => a.studentId !== s.id);
+                        return false; // Remove student
+                    }
+                    return true; // Keep student
+                });
+                renderClassList();
+                renderStudentList(); // Re-render students as some might be deleted
+                saveData(); // Save changes
+                showNotification('Class and associated data deleted successfully!');
+            }
+        }
+
+        // --- Parent View & Preview ---
+        function renderParentView() {
+            const studentId = currentUser.studentId;
+            const container = document.getElementById('studentAttendanceInfo');
+            container.innerHTML = getParentViewHTML(studentId);
+        }
+        
+        function openParentPreview(studentId) {
+            const previewContent = document.getElementById('parentPreviewContent');
+            previewContent.innerHTML = getParentViewHTML(studentId, true);
+            parentPreviewModal.style.display = 'block';
+        }
+
+        function getParentViewHTML(studentId, isPreview = false) {
+            const student = db.students.find(s => s.id === studentId);
+            if (!student) return '<p>Student not found.</p>';
+
+            const studentClass = db.classes.find(c => c.id === student.classId);
+            const attendance = db.attendance.filter(a => a.studentId === studentId).sort((a,b) => b.date.localeCompare(a.date));
+
+            const title = isPreview ? `Parent Preview: ${student.name}` : `Attendance for ${student.name}`;
+
+            return `
+                <h2 class="text-xl font-bold mb-4">${title}</h2>
+                <p class="mb-4"><strong>Class:</strong> ${studentClass ? studentClass.name : 'N/A'}</p>
+                <h3 class="text-lg font-semibold mb-2">Attendance History</h3>
+                <ul class="divide-y divide-gray-200 max-h-60 overflow-y-auto border rounded-md p-2">
+                    ${attendance.length > 0 ? attendance.map(a => `
+                        <li class="py-3 flex justify-between items-center">
+                            <span class="font-mono">${a.date}</span>
+                            <span class="px-3 py-1 text-sm font-semibold rounded-full ${a.status === 'present' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                ${a.status.charAt(0).toUpperCase() + a.status.slice(1)}
+                            </span>
+                        </li>
+                    `).join('') : '<li class="py-3 text-gray-500">No attendance records found.</li>'}
+                </ul>
+            `;
+        }
+
+        // --- Public Parent Preview Logic ---
+        function initializeParentPreview() {
+            parentClassSelect.innerHTML = '<option value="">-- Select Class --</option>';
+            db.classes.forEach(c => {
+                const option = document.createElement('option');
+                option.value = c.id;
+                option.textContent = c.name;
+                parentClassSelect.appendChild(option);
+            });
+
+            parentClassSelect.addEventListener('change', () => {
+                const classId = parseInt(parentClassSelect.value);
+                parentStudentSelect.innerHTML = '<option value="">-- Select Student --</option>';
+                parentMarksDisplay.innerHTML = '';
+                
+                if (classId) {
+                    const studentsInClass = db.students.filter(s => s.classId === classId);
+                    studentsInClass.forEach(s => {
+                        const option = document.createElement('option');
+                        option.value = s.id;
+                        option.textContent = s.name;
+                        parentStudentSelect.appendChild(option);
+                    });
+                    parentStudentSelect.disabled = false;
+                } else {
+                    parentStudentSelect.disabled = true;
+                }
+                viewMarksBtn.disabled = true;
+            });
+
+            parentStudentSelect.addEventListener('change', () => {
+                viewMarksBtn.disabled = !parentStudentSelect.value;
+                parentMarksDisplay.innerHTML = '';
+            });
+
+            viewMarksBtn.addEventListener('click', () => {
+                const studentId = parseInt(parentStudentSelect.value);
+                if (studentId) {
+                    parentMarksDisplay.innerHTML = getParentViewHTML(studentId, true);
+                }
+            });
+        }
+
+
+        // --- Event Listeners ---
+        loginBtn.addEventListener('click', login);
+        logoutBtnAdmin.addEventListener('click', logout);
+        logoutBtnParent.addEventListener('click', logout);
+
+        adminTabs.addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON') {
+                switchTab(e.target.id);
+            }
+        });
+
+        // QR Scanner
+        enableCameraBtn.addEventListener('click', startQrScanner);
+        proceedCamera.addEventListener('click', startQrScanner);
+        cancelCamera.addEventListener('click', () => {
+            mobileCameraNotification.style.display = 'none';
+        });
+
+        // Student modal
+        addStudentBtn.addEventListener('click', () => openStudentModal());
+        closeStudentModal.addEventListener('click', () => studentModal.style.display = 'none');
+        cancelStudent.addEventListener('click', () => studentModal.style.display = 'none');
+        studentForm.addEventListener('submit', saveStudent);
+
+        // Class modal
+        addClassBtn.addEventListener('click', openClassModal);
+        closeClassModal.addEventListener('click', () => classModal.style.display = 'none');
+        cancelClass.addEventListener('click', () => classModal.style.display = 'none');
+        classForm.addEventListener('submit', saveClass);
+        
+        // View student modal
+        closeViewStudentModal.addEventListener('click', () => viewStudentModal.style.display = 'none');
+        document.getElementById('regenerateQrBtn').addEventListener('click', regenerateQrCode);
+        document.getElementById('addManualAttendanceBtn').addEventListener('click', addManualAttendance);
+
+        // Parent preview modal
+        closeParentPreviewModal.addEventListener('click', () => parentPreviewModal.style.display = 'none');
+
+        // Close modals on outside click
+        window.onclick = function(event) {
+            if (event.target == studentModal) studentModal.style.display = "none";
+            if (event.target == classModal) classModal.style.display = "none";
+            if (event.target == viewStudentModal) viewStudentModal.style.display = "none";
+            if (event.target == parentPreviewModal) parentPreviewModal.style.display = "none";
+            if (event.target == mobileCameraNotification) mobileCameraNotification.style.display = "none";
+        }
+
+        // --- Data Persistence with Google Apps Script ---
+        // IMPORTANT: YOU MUST REPLACE THIS PLACEHOLDER WITH YOUR DEPLOYED GOOGLE APPS SCRIPT WEB APP URL
+        // Follow the instructions below to get your unique URL.
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbxbTHPVXUxPb95grar6p-otKJM-gIuPiENB7dxZHF3LZNihPXZe7_MIUZtCKHEZshljIQ/exec"; 
+        const FILENAME = "StudentAttendanceData.json"; // Name of the file in your Google Drive
+
+        async function loadData() {
+            try {
+                // Check if GAS_URL is still the placeholder
+                if (GAS_URL === "YOUR_DEPLOYED_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE") {
+                    throw new Error("GAS_URL is not set. Please replace the placeholder in index.html with your deployed Google Apps Script URL.");
+                }
+
+                // Fetch data using the 'filename' parameter
+                const response = await fetch(`${GAS_URL}?filename=${FILENAME}`);
+                if (!response.ok) {
+                    // If response is not OK (e.g., 404, 500), throw an error
+                    const errorText = await response.text(); // Try to get error message from GAS
+                    throw new Error(`HTTP error! Status: ${response.status}. Response: ${errorText}`);
+                }
+                const text = await response.text();
+                // Attempt to parse the text as JSON. If the file is empty or not found,
+                // the GAS should return an empty JSON object, which is handled here.
+                db = JSON.parse(text);
+                showNotification("Data loaded successfully!");
+                // Re-render UI after data is loaded
+                if (currentUser && currentUser.role === 'admin') {
+                    renderAdminDashboard();
+                } else if (currentUser && currentUser.role === 'parent') {
+                    renderParentView();
+                }
+                initializeParentPreview(); // Also initialize public parent preview
+            } catch (err) {
+                console.error("Load error:", err);
+                showNotification(`Failed to load data: ${err.message}. Initializing with default data.`, 7000, 'bg-red-600');
+                // If loading fails, ensure UI is still usable with initial dummy data
+                // db will retain its initial dummy data if loading fails
+                initializeParentPreview();
+            } finally {
+                loginBtn.disabled = false; // Enable login button regardless of load success
+            }
+        }
+
+        async function saveData() {
+            try {
+                // Check if GAS_URL is still the placeholder
+                if (GAS_URL === "YOUR_DEPLOYED_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE") {
+                    throw new Error("GAS_URL is not set. Cannot save data. Please replace the placeholder in index.html with your deployed Google Apps Script URL.");
+                }
+
+                const response = await fetch(`${GAS_URL}?function=saveToDrive&filename=${FILENAME}`, {
+                    method: "POST",
+                    body: JSON.stringify(db), // Send the entire db object as JSON string
+                    headers: { "Content-Type": "application/json" } // Crucial header
+                });
+                if (!response.ok) {
+                    // If response is not OK (e.g., 404, 500), throw an error
+                    const errorText = await response.text(); // Try to get error message from GAS
+                    throw new Error(`HTTP error! Status: ${response.status}. Response: ${errorText}`);
+                }
+                const result = await response.text(); // GAS might return a simple text message
+                showNotification("Saved: " + result);
+            } catch (err) {
+                console.error("Save error:", err);
+                showNotification(`Save error: ${err.message}. Check Google Apps Script deployment and logs.`, 7000, 'bg-red-600');
+            }
+        }
+
+        // Custom notification function (replaces alert for better UX)
+        function showNotification(message = "Action completed!", duration = 3000, bgColor = "bg-green-600") {
+            let notification = document.getElementById("notification");
+            if (!notification) {
+                notification = document.createElement("div");
+                notification.id = "notification";
+                // Base classes for notification
+                notification.className = "fixed top-4 right-4 text-white px-4 py-2 rounded shadow z-50 transition-opacity duration-300 ease-out";
+                document.body.appendChild(notification);
+            }
+
+            notification.textContent = message;
+            notification.className = `fixed top-4 right-4 text-white px-4 py-2 rounded shadow z-50 transition-opacity duration-300 ease-out ${bgColor}`;
+            notification.classList.remove("hidden", "opacity-0");
+            notification.classList.add("opacity-100");
+
+            setTimeout(() => {
+                notification.classList.remove("opacity-100");
+                notification.classList.add("opacity-0");
+                setTimeout(() => {
+                    notification.classList.add("hidden");
+                }, 300); // Wait for fade out to complete before hiding
+            }, duration);
+        }
+
+        // --- Initial state ---
+        showPage('loginPage');
+        loadData(); // Attempt to load data on page load
+
+    </script>
+</body>
+</html>
