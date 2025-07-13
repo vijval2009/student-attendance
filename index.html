@@ -406,26 +406,7 @@
         }
 
         // --- Cookie Functions ---
-        function setCookie(name, value, days) {
-            let expires = "";
-            if (days) {
-                const date = new Date();
-                date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
-                expires = "; expires=" + date.toUTCString();
-            }
-            document.cookie = name + "=" + (value || "") + expires + "; path=/";
-        }
 
-        function getCookie(name) {
-            const nameEQ = name + "=";
-            const ca = document.cookie.split(';');
-            for (let i = 0; i < ca.length; i++) {
-                let c = ca[i];
-                while (c.charAt(0) == ' ') c = c.substring(1, c.length);
-                if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
-            }
-            return null;
-        }
 
         // --- Core Functions ---
         function showPage(pageId) {
@@ -465,7 +446,6 @@
         function logout() {
             currentUser = null;
             stopQrScanner(); // Ensure camera is off on logout
-            setCookie('cameraAccessGranted', '', -1); // Expire the cookie on logout
             saveData(); // Final save before logout
             showPage('loginPage');
             document.getElementById('username').value = '';
@@ -528,7 +508,6 @@
                     audio: false
                 };
                 videoStream = await navigator.mediaDevices.getUserMedia(constraints);
-                setCookie('cameraAccessGranted', 'true', 30); // Remember permission
                 qrVideo.srcObject = videoStream;
                 qrVideo.setAttribute("playsinline", true);
                 await qrVideo.play(); // Wait for video to start playing
@@ -545,8 +524,7 @@
                 qrMessage.className = 'mt-4 text-center font-medium p-3 rounded-md bg-blue-100 text-blue-800';
                 animationFrameId = requestAnimationFrame(tick);
             } catch (err) {
-                console.error("Error accessing camera: ", err);
-                setCookie('cameraAccessGranted', 'false', 30); // Remember denial
+                console.error("Error accessing camera: ", err); 
                 qrScannerContainer.classList.add('hidden');
                 cameraAccessPrompt.classList.remove('hidden');
                 const promptMessage = cameraAccessPrompt.querySelector('p');
@@ -983,7 +961,7 @@
         // --- Data Persistence with Google Apps Script ---
         // IMPORTANT: YOU MUST REPLACE THIS PLACEHOLDER WITH YOUR DEPLOYED GOOGLE APPS SCRIPT WEB APP URL
         // Follow the instructions below to get your unique URL.
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbxbTHPVXUxPb95grar6p-otKJM-gIuPiENB7dxZHF3LZNihPXZe7_MIUZtCKHEZshljIQ/exec"; 
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbzamJHkIArb2pgsTmRm2TWq2_qPXGbcFa0O6fbMxTL6Xw1vBa8CjIYv3F3a-EEvaejU4A/exec"; 
         const FILENAME = "StudentAttendanceData.json"; // Name of the file in your Google Drive
 
         async function loadData() {
@@ -1023,30 +1001,27 @@
             }
         }
 
-        async function saveData() {
-            try {
-                // Check if GAS_URL is still the placeholder
-                if (GAS_URL === "YOUR_DEPLOYED_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE") {
-                    throw new Error("GAS_URL is not set. Cannot save data. Please replace the placeholder in index.html with your deployed Google Apps Script URL.");
-                }
+async function saveData() {
+    try {
+        const response = await fetch(`${GAS_URL}?filename=${FILENAME}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(db)
+        });
 
-                const response = await fetch(`${GAS_URL}?function=saveToDrive&filename=${FILENAME}`, {
-                    method: "POST",
-                    body: JSON.stringify(db), // Send the entire db object as JSON string
-                    headers: { "Content-Type": "application/json" } // Crucial header
-                });
-                if (!response.ok) {
-                    // If response is not OK (e.g., 404, 500), throw an error
-                    const errorText = await response.text(); // Try to get error message from GAS
-                    throw new Error(`HTTP error! Status: ${response.status}. Response: ${errorText}`);
-                }
-                const result = await response.text(); // GAS might return a simple text message
-                showNotification("Saved: " + result);
-            } catch (err) {
-                console.error("Save error:", err);
-                showNotification(`Save error: ${err.message}. Check Google Apps Script deployment and logs.`, 7000, 'bg-red-600');
-            }
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Save failed: ${errorText}`);
         }
+
+        const result = await response.text();
+        showNotification("Saved: " + result);
+    } catch (err) {
+        console.error("Save error:", err);
+        showNotification(`Save error: ${err.message}`, 7000, 'bg-red-600');
+    }
+}
+
 
         // Custom notification function (replaces alert for better UX)
         function showNotification(message = "Action completed!", duration = 3000, bgColor = "bg-green-600") {
